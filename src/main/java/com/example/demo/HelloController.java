@@ -18,3 +18,8 @@ public class HelloController {
     }
 
 }
+
+@GetMapping("/api/bye")
+public String bye() {
+    return "Goodbye!";
+}
