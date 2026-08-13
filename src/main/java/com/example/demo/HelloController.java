@@ -1,5 +1,4 @@
 package com.example.demo;
-
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RestController;
@@ -17,9 +16,9 @@ public class HelloController {
         return "Hello, " + name + "!";
     }
 
+    @GetMapping("/api/bye")
+    public String bye() {
+        return "Goodbye!";
+    }
 }
 
-@GetMapping("/api/bye")
-public String bye() {
-    return "Goodbye!";
-}
