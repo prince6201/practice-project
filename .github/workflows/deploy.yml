@@ -10,10 +10,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # 1. Checkout
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Java 21 setup - fixes "release version 21 not supported"
+      # 2. Java 21
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -21,23 +22,41 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # Verify Java version
+      # 3. Check Java
       - name: Check Java version
         run: |
           java -version
           ./mvnw -version
 
+      # 4. Build
       - name: Build with Maven
         run: ./mvnw clean package -DskipTests
 
-      - name: Deploy to Production (Swagger ON)
+      # 5. Create deployment directories
+      - name: Prepare deployment directories
+        run: |
+          sudo mkdir -p /opt/demo-service
+          sudo mkdir -p /opt/demo-service-verify
+
+      # 6. Copy Production JAR
+      - name: Deploy Production
         run: |
           sudo cp target/*.jar /opt/demo-service/app.jar
-          sudo systemctl restart demo-service
 
-          for i in {1..10}; do
+          echo "✅ Production JAR copied successfully"
+
+          nohup java -jar /opt/demo-service/app.jar \
+            --server.port=8080 \
+            > /tmp/demo-service.log 2>&1 &
+
+          echo $! | sudo tee /opt/demo-service/app.pid
+
+      # 7. Wait for Production
+      - name: Verify Production
+        run: |
+          for i in {1..20}; do
             if curl -f http://localhost:8080/api/hello; then
-              echo "✅ demo-service is up (attempt $i)"
+              echo "✅ demo-service is up"
               break
             fi
 
@@ -45,35 +64,58 @@ jobs:
             sleep 3
           done
 
-          curl -f http://localhost:8080/api/hello || exit 1
+          curl -f http://localhost:8080/api/hello
 
-      - name: Deploy to Verification Service (Swagger ON)
+      # 8. Copy Verification JAR
+      - name: Deploy Verification Service
         run: |
           sudo cp target/*.jar /opt/demo-service-verify/app.jar
-          sudo systemctl restart demo-service-verify
 
-          for i in {1..10}; do
+          echo "✅ Verification JAR copied successfully"
+
+          nohup java -jar /opt/demo-service-verify/app.jar \
+            --server.port=8081 \
+            > /tmp/demo-service-verify.log 2>&1 &
+
+          echo $! | sudo tee /opt/demo-service-verify/app.pid
+
+      # 9. Wait for Verification
+      - name: Verify Verification Service
+        run: |
+          for i in {1..20}; do
             if curl -f http://localhost:8081/api/hello; then
-              echo "✅ demo-service-verify is up (attempt $i)"
+              echo "✅ demo-service-verify is up"
               break
             fi
 
-            echo "⏳ Waiting for demo-service-verify... attempt $i"
+            echo "⏳ Waiting for verification service... attempt $i"
             sleep 3
           done
 
-          curl -f http://localhost:8081/api/hello || exit 1
+          curl -f http://localhost:8081/api/hello
 
-      - name: Schedule auto-stop after 2 minutes (testing)
+      # 10. Show application logs
+      - name: Show application logs
+        if: always()
         run: |
-          echo "⏰ Scheduling auto-stop after 2 minutes..."
+          echo "===== Production Logs ====="
+          cat /tmp/demo-service.log || true
 
-          nohup bash -c '
-            sleep 120
-            echo "🛑 Stopping demo services..."
-            sudo systemctl stop demo-service || true
-            sudo systemctl stop demo-service-verify || true
-            echo "✅ Auto-stop completed."
-          ' >/tmp/auto-stop.log 2>&1 &
+          echo "===== Verification Logs ====="
+          cat /tmp/demo-service-verify.log || true
 
-          echo "✅ Auto-stop scheduled successfully."
+      # 11. Auto-stop after testing
+      - name: Stop services after testing
+        if: always()
+        run: |
+          echo "🛑 Stopping test services..."
+
+          if [ -f /opt/demo-service/app.pid ]; then
+            sudo kill "$(cat /opt/demo-service/app.pid)" || true
+          fi
+
+          if [ -f /opt/demo-service-verify/app.pid ]; then
+            sudo kill "$(cat /opt/demo-service-verify/app.pid)" || true
+          fi
+
+          echo "✅ Test services stopped"
