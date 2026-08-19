@@ -7,14 +7,13 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout source code
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # 2. Setup Java 21
+      # Java 21 setup - fixes "release version 21 not supported"
       - name: Set up Java 21
         uses: actions/setup-java@v4
         with:
@@ -22,19 +21,16 @@ jobs:
           java-version: '21'
           cache: maven
 
-      # 3. Verify Java and Maven
+      # Verify Java version
       - name: Check Java version
         run: |
           java -version
           ./mvnw -version
 
-      # 4. Build Spring Boot application
       - name: Build with Maven
         run: ./mvnw clean package -DskipTests
 
-      # 5. Deploy to Production
-      # Swagger stays OFF
-      - name: Deploy to Production
+      - name: Deploy to Production (Swagger stays OFF)
         run: |
           sudo cp target/*.jar /opt/demo-service/app.jar
           sudo systemctl restart demo-service
@@ -51,9 +47,7 @@ jobs:
 
           curl -f http://localhost:8080/api/hello || exit 1
 
-      # 6. Deploy to Verification Service
-      # Swagger stays ON
-      - name: Deploy to Verification Service
+      - name: Deploy to Verification Service (Swagger ON)
         run: |
           sudo cp target/*.jar /opt/demo-service-verify/app.jar
           sudo systemctl restart demo-service-verify
@@ -70,21 +64,16 @@ jobs:
 
           curl -f http://localhost:8081/api/hello || exit 1
 
-      # 7. Schedule auto-stop after 2 minutes
-      - name: Schedule auto-stop after 2 minutes
+      - name: Schedule auto-stop after 2 minutes (testing)
         run: |
-          echo "⏰ Scheduling auto-stop in 2 minutes..."
+          echo "⏰ Scheduling auto-stop after 2 minutes..."
 
-          (
+          nohup bash -c '
             sleep 120
-
             echo "🛑 Stopping demo services..."
-
             sudo systemctl stop demo-service || true
             sudo systemctl stop demo-service-verify || true
-
-            echo "✅ Both demo services stopped."
-          ) &
+            echo "✅ Auto-stop completed."
+          ' >/tmp/auto-stop.log 2>&1 &
 
           echo "✅ Auto-stop scheduled successfully."
-```
