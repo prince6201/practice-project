@@ -30,7 +30,7 @@ jobs:
       - name: Build with Maven
         run: ./mvnw clean package -DskipTests
 
-      - name: Deploy to Production (Swagger stays OFF)
+      - name: Deploy to Production (Swagger ON)
         run: |
           sudo cp target/*.jar /opt/demo-service/app.jar
           sudo systemctl restart demo-service
