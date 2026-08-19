@@ -1,4 +1,4 @@
-name: Deploy Spring Boot (Self-Hosted Runner)
+name: CI
 
 on:
   push:
@@ -6,7 +6,6 @@ on:
       - main
 jobs:
   build-and-deploy:
-    runs-on: self-hosted
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
