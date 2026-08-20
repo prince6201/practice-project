@@ -11,7 +11,7 @@ public class HelloController {
 
     @GetMapping("/api/hello")
     public String hello() {
-        return "Hello! This project is ready for you to add Swagger.";
+        return "Hello! Swagger test v2 - build check";
     }
 
     @GetMapping("/api/greet/{name}")
